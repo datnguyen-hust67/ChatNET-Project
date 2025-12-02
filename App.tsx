@@ -1,788 +1,260 @@
+// --- 1. POLYFILL (GIỮ NGUYÊN) ---
+const randomBytes = (length: number) => {
+  const bytes = new Uint8Array(length);
+  for (let i = 0; i < length; i++) {
+    bytes[i] = Math.floor(Math.random() * 256);
+  }
+  return bytes;
+};
+
+if (!global.crypto) { (global as any).crypto = {}; }
+if (!(global as any).crypto.getRandomValues) {
+  (global as any).crypto.getRandomValues = (array: any) => {
+    const bytes = randomBytes(array.length);
+    for (let i = 0; i < array.length; i++) { array[i] = bytes[i]; }
+    return array;
+  };
+}
+
+// --- 2. MODULES ---
+const CryptoJS = require('crypto-js');
+const { launchImageLibrary } = require('react-native-image-picker'); 
+
+// --- 3. IMPORTS ---
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-  KeyboardAvoidingView,
-  Platform,
-  Alert,
-  StatusBar,
-  Dimensions,
-  Modal,
-  Image,
-  ImageBackground,
+  SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity,
+  View, Alert, StatusBar, Modal, Image, ImageBackground,
 } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
 import TcpSocket from 'react-native-tcp-socket';
-import { encryptCaesar, decryptCaesar, isValidKey, parseKey } from './src/utils/caesarCipher';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+// --- FILE PDF MẪU (GIỮ NGUYÊN) ---
+const SAMPLE_PDF_BASE64 = "JVBERi0xLjcKCjEgMCBvYmogICUgZW50cnkgcG9pbnQKPDwKICAvVHlwZSAvQ2F0YWxvZwogIC9QYWdlcyAyIDAgUgo+PgplbmRvYmoKCjIgMCBvYmoKPDwKICAvVHlwZSAvUGFnZXwKICAvTWVkaWFCb3ggWyAwIDAgMjAwIDIwMCBdCiAgL0NvdW50IDEKICAvS2lkcyBbIDMgMCBSIF0KPj4KZW5kb2JqCgozIDAgb2JqCjw8CiAgL1R5cGUgL1BhZ2UKICAvUGFyZW50IDIgMCBSCiAgL1Jlc291cmNlcyA8PAogICAgL0ZvbnQgPDwKICAgICAgL0YxIDQgMCBSCjI+CiAgICA+PgogID4+CiAgL0NvbnRlbnRzIDUgMCBSCj4+CmVuZG9iagoKNCAwIG9iago8PAogIC9UeXBlIC9Gb250CiAgL1N1YnR5cGUgL1R5cGUxCiAgL0Jhc2VGb250IC9UaW1lcy1Sb21hbgo+PgplbmRvYmoKCjUgMCBvYmoKPDwgL0xlbmd0aCA0NCA+PgpzdHJlYW0KQlQKNzAgNTAgVGQKL0YxIDEyIFRmCihEb2MgQ2hhdE5FVCkgVGoKRVQKZW5kc3RyZWFtCmVuZG9iagoKeHJlZgowIDYKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMDEwIDAwMDAwIG4gCjAwMDAwMDAwNjAgMDAwMDAgbiAKMDAwMDAwMDE1NyAwMDAwMCBuIAowMDAwMDAwMjU1IDAwMDAwIG4gCjAwMDAwMDAzNDQgMDAwMDAgbiAKdHJhaWxlcgo8PAogIC9TaXplIDYKICAvUm9vdCAxIDAgUgo+PgpzdGFydHhyZWYKNDQxCiUlRU9FCg==";
 
-const isSmallScreen = SCREEN_HEIGHT < 700;
-const isNarrowScreen = SCREEN_WIDTH < 360;
-const scale = (size: number) => (SCREEN_WIDTH / 375) * size;
-const verticalScale = (size: number) => (SCREEN_HEIGHT / 667) * size;
-const moderateScale = (size: number, factor = 0.5) => size + (scale(size) - size) * factor;
+const PORT = 9000; // Dùng cổng 9000
+const DELIMITER = "|||END|||"; 
 
-const responsiveFontSize = (size: number) => {
-  const scaledSize = moderateScale(size, 0.3);
-  return Math.max(Math.min(scaledSize, size * 1.2), size * 0.85);
+// --- HÀM MÃ HÓA BỔ SUNG ---
+const caesarCipher = (str: string, shift: number, decrypt: boolean = false) => {
+  if (decrypt) shift = (26 - shift) % 26;
+  return str.replace(/[a-zA-Z]/g, (c) => {
+    const base = c >= 'a' ? 97 : 65;
+    return String.fromCharCode(((c.charCodeAt(0) - base + shift) % 26) + base);
+  });
+};
+// RSA Giả lập (Để tránh lỗi thư viện native)
+const rsaEncrypt = (text: string) => `RSA:${Buffer.from(text).toString('base64')}`;
+const rsaDecrypt = (text: string) => {
+  if (!text.startsWith("RSA:")) return text;
+  return Buffer.from(text.replace("RSA:", ""), 'base64').toString('utf8');
 };
 
 interface Message {
-  text: string;
+  type: 'text' | 'image' | 'pdf';
+  content: string;
   sender: 'me' | 'other';
   timestamp: Date;
-  encrypted?: boolean;
+  algo: string; // Thêm trường này
 }
 
-const PORT = 8888;
-
 function App(): React.JSX.Element {
-  const [myIp, setMyIp] = useState<string>('Đang lấy IP...');
+  const [myIp, setMyIp] = useState<string>('...');
   const [targetIp, setTargetIp] = useState<string>('');
   const [message, setMessage] = useState<string>('');
   const [messages, setMessages] = useState<Message[]>([]);
-  const [isServerRunning, setIsServerRunning] = useState(false);
-  const [showHelp, setShowHelp] = useState(false);
-  const [encryptionKey, setEncryptionKey] = useState<string>('3');
+  
+  // Cài đặt
   const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const [isEncryptionEnabled, setIsEncryptionEnabled] = useState(true);
+  const [showAlgoMenu, setShowAlgoMenu] = useState(false);
+  const [encryptionKey, setEncryptionKey] = useState<string>('123'); 
+  const [selectedAlgo, setSelectedAlgo] = useState<'AES'|'DES'|'RSA'|'CAESAR'>('AES');
   
   const serverRef = useRef<any>(null);
-  const clientRef = useRef<any>(null);
-  const scrollViewRef = useRef<ScrollView>(null);
   const encryptionKeyRef = useRef(encryptionKey);
-  const isEncryptionEnabledRef = useRef(isEncryptionEnabled);
-  
-  useEffect(() => {
-    encryptionKeyRef.current = encryptionKey;
-  }, [encryptionKey]);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const bufferRef = useRef<string>("");
+
+  useEffect(() => { encryptionKeyRef.current = encryptionKey; }, [encryptionKey]);
 
   useEffect(() => {
-    isEncryptionEnabledRef.current = isEncryptionEnabled;
-  }, [isEncryptionEnabled]);
+    NetInfo.fetch().then(state => setMyIp((state.details as any)?.ipAddress || 'Lỗi IP'));
+    startServer();
+    return () => { if (serverRef.current) serverRef.current.close(); };
+  }, []);
 
-  const fetchIpAddress = () => {
-    setMyIp('Đang lấy IP...');
-    NetInfo.fetch().then(state => {
-      if (state.details && 'ipAddress' in state.details) {
-        const ip = (state.details as any).ipAddress;
-        setMyIp(ip || 'Không tìm thấy IP');
-      } else {
-        setMyIp('Không tìm thấy IP');
-      }
-    });
+  const processIncomingData = (rawString: string) => {
+    try {
+        // Format mới: TYPE|ALGO|CONTENT
+        const parts = rawString.split('|');
+        if (parts.length < 3) return;
+
+        const typeStr = parts[0];
+        const algoUsed = parts[1];
+        const contentEnc = parts[2];
+        let content = "";
+        const key = encryptionKeyRef.current;
+
+        // GIẢI MÃ
+        if (algoUsed === 'AES') content = CryptoJS.AES.decrypt(contentEnc, key).toString(CryptoJS.enc.Utf8);
+        else if (algoUsed === 'DES') content = CryptoJS.DES.decrypt(contentEnc, key).toString(CryptoJS.enc.Utf8);
+        else if (algoUsed === 'CAESAR') content = caesarCipher(contentEnc, 3, true);
+        else if (algoUsed === 'RSA') content = rsaDecrypt(contentEnc);
+        else content = contentEnc;
+
+        if (!content && typeStr !== 'IMG' && typeStr !== 'PDF') content = "[Lỗi giải mã]";
+        if ((typeStr === 'IMG' || typeStr === 'PDF') && !content) content = contentEnc; // Fallback
+
+        let msgType: 'text'|'image'|'pdf' = 'text';
+        if (typeStr === 'IMG') msgType = 'image';
+        if (typeStr === 'PDF') msgType = 'pdf';
+
+        setMessages(prev => [...prev, { type: msgType, content, sender: 'other', timestamp: new Date(), algo: algoUsed }]);
+    } catch (e) {}
   };
-
-  useEffect(() => {
-    fetchIpAddress();
-  }, []);
-
-  useEffect(() => {
-    if (!isServerRunning) {
-      startServer();
-    }
-
-    return () => {
-      if (serverRef.current) {
-        serverRef.current.close();
-      }
-      if (clientRef.current) {
-        clientRef.current.destroy();
-      }
-    };
-  }, []);
 
   const startServer = () => {
     try {
       const server = TcpSocket.createServer((socket: any) => {
         socket.on('data', (data: any) => {
-          const receivedMessage = data.toString('utf8');
-          const isEncryptionOn = isEncryptionEnabledRef.current;
-          const currentKey = encryptionKeyRef.current;
-          let displayMessage = receivedMessage;
-          
-          if (isEncryptionOn && isValidKey(currentKey)) {
-            displayMessage = decryptCaesar(receivedMessage, parseKey(currentKey));
+          bufferRef.current += data.toString('utf8');
+          if (bufferRef.current.includes(DELIMITER)) {
+            const parts = bufferRef.current.split(DELIMITER);
+            for (let i = 0; i < parts.length - 1; i++) {
+              if (parts[i].trim()) processIncomingData(parts[i]);
+            }
+            bufferRef.current = parts[parts.length - 1];
           }
-          
-          setMessages(prev => [
-            ...prev,
-            {
-              text: displayMessage,
-              sender: 'other',
-              timestamp: new Date(),
-              encrypted: isEncryptionOn,
-            },
-          ]);
-        });
-
-        socket.on('error', (error: any) => {
-        });
-
-        socket.on('close', () => {
         });
       });
-
-      server.listen({ port: PORT, host: '0.0.0.0' }, () => {
-        setIsServerRunning(true);
-      });
-
-      server.on('error', (error: any) => {
-        Alert.alert('Lỗi', 'Không thể khởi động server: ' + error.message);
-      });
-
+      server.listen({ port: PORT, host: '0.0.0.0' });
       serverRef.current = server;
-    } catch (error: any) {
-      Alert.alert('Lỗi', 'Không thể khởi động server: ' + error.message);
-    }
+    } catch (e) { Alert.alert('Lỗi Server', "Cổng bận"); }
   };
 
-  const sendMessage = () => {
-    if (!message.trim()) {
-      Alert.alert('Thông báo', 'Vui lòng nhập tin nhắn');
-      return;
-    }
-
-    if (!targetIp.trim()) {
-      Alert.alert('Thông báo', 'Vui lòng nhập IP đối phương trong Settings');
-      return;
-    }
-
-    if (isEncryptionEnabled && !isValidKey(encryptionKey)) {
-      Alert.alert('Lỗi mã hóa', 'Key phải là số từ 1-25');
-      return;
-    }
-
-    const messageToSend = message.trim();
-    const encryptedMessage = isEncryptionEnabled 
-      ? encryptCaesar(messageToSend, parseKey(encryptionKey))
-      : messageToSend;
+  const sendData = (rawData: string, type: 'text'|'image'|'pdf') => {
+    if (!targetIp.trim()) { Alert.alert('Lỗi', 'Chưa nhập IP nhận'); return; }
     
-    setMessage('');
+    let encrypted = "";
+    const key = encryptionKey;
 
+    // MÃ HÓA
     try {
-      let connectionTimeout: any;
-      let isConnected = false;
+        if (selectedAlgo === 'AES') encrypted = CryptoJS.AES.encrypt(rawData, key).toString();
+        else if (selectedAlgo === 'DES') encrypted = CryptoJS.DES.encrypt(rawData, key).toString();
+        else if (selectedAlgo === 'CAESAR') encrypted = caesarCipher(rawData, 3);
+        else if (selectedAlgo === 'RSA') encrypted = rsaEncrypt(rawData);
+    } catch (e: any) { Alert.alert("Lỗi Mã Hóa", e.message); return; }
 
-      const client = TcpSocket.createConnection(
-        {
-          port: PORT,
-          host: targetIp,
-        },
-        () => {
-          isConnected = true;
-          clearTimeout(connectionTimeout);
+    // ĐÓNG GÓI: TYPE|ALGO|CONTENT|||END|||
+    let header = 'TXT';
+    if(type === 'image') header = 'IMG';
+    if(type === 'pdf') header = 'PDF';
 
-          client.write(encryptedMessage, 'utf8', (error) => {
-            if (error) {
-              Alert.alert('Lỗi', 'Không thể gửi tin nhắn: ' + error.message);
-            } else {
-              setMessages(prev => [
-                ...prev,
-                {
-                  text: messageToSend,
-                  sender: 'me',
-                  timestamp: new Date(),
-                  encrypted: isEncryptionEnabled,
-                },
-              ]);
-            }
+    const finalData = `${header}|${selectedAlgo}|${encrypted}${DELIMITER}`;
 
-            setTimeout(() => {
-              client.destroy();
-            }, 100);
-          });
+    const client = TcpSocket.createConnection({ port: PORT, host: targetIp }, () => {
+      client.write(finalData, 'utf8', (err) => {
+        if (!err) {
+          setMessages(prev => [...prev, { type, content: rawData, sender: 'me', timestamp: new Date(), algo: selectedAlgo }]);
         }
-      );
-
-      connectionTimeout = setTimeout(() => {
-        if (!isConnected) {
-          client.destroy();
-          Alert.alert(
-            'Lỗi kết nối', 
-            `Không thể kết nối đến ${targetIp}\n\nKiểm tra:\n• IP có đúng không?\n• Thiết bị có cùng WiFi không?\n• Ứng dụng đã mở ở thiết bị kia chưa?`
-          );
-        }
-      }, 5000);
-
-      client.on('error', (error: any) => {
-        clearTimeout(connectionTimeout);
-        
-        let errorMessage = 'Không thể kết nối đến ' + targetIp;
-        const errMsg = error?.message || '';
-        
-        if (errMsg.includes('ECONNREFUSED')) {
-          errorMessage += '\n\n❌ Kết nối bị từ chối!\nỨng dụng chưa được mở ở thiết bị đích.';
-        } else if (errMsg.includes('ETIMEDOUT') || errMsg.includes('timeout')) {
-          errorMessage += '\n\n⏱️ Hết thời gian chờ!\nKiểm tra kết nối mạng và IP.';
-        } else if (errMsg.includes('ENETUNREACH') || errMsg.includes('EHOSTUNREACH')) {
-          errorMessage += '\n\n🌐 Không thể truy cập mạng!\nKiểm tra cả 2 thiết bị có cùng WiFi.';
-        } else if (errMsg) {
-          errorMessage += '\n\n' + errMsg;
-        }
-        
-        Alert.alert('Lỗi kết nối', errorMessage);
       });
+      // Đợi 500ms rồi mới ngắt để tin đi kịp
+      setTimeout(() => client.destroy(), 500);
+    });
+    client.on('error', (e) => console.log(e));
+  };
 
-      client.on('close', () => {
-        clearTimeout(connectionTimeout);
-      });
+  const handlePickImage = () => {
+    launchImageLibrary({mediaType: 'photo', includeBase64: true, maxWidth: 300, quality: 0.5}, (response: any) => {
+      if (response.assets && response.assets[0]?.base64) sendData(response.assets[0].base64, 'image');
+    });
+  };
 
-      clientRef.current = client;
-    } catch (error: any) {
-      Alert.alert('Lỗi', 'Không thể gửi tin nhắn: ' + error.message);
-    }
+  const handleSendPDF = () => sendData(SAMPLE_PDF_BASE64, 'pdf');
+
+  // UI Component
+  const renderContent = (msg: Message) => {
+    if (msg.type === 'image') return <Image source={{uri: `data:image/jpeg;base64,${msg.content}`}} style={{width:150, height:150, borderRadius:10}}/>;
+    if (msg.type === 'pdf') return <Text style={{fontWeight:'bold', color: msg.sender==='me'?'white':'black'}}>📄 Bao_cao_ltmm.pdf</Text>;
+    return <Text style={{color:msg.sender==='me'?'white':'black', fontSize:16}}>{msg.content}</Text>;
   };
 
   return (
     <>
       <StatusBar barStyle="light-content" backgroundColor="#0084ff" />
-      <ImageBackground
-        source={require('./assets/Logo.jpg')}
-        style={styles.backgroundImage}
-        imageStyle={styles.backgroundImageStyle}
-      >
-        <SafeAreaView style={styles.container}>
-          {/* Header */}
+      <SafeAreaView style={{flex:1, backgroundColor:'#F0F0F0'}}>
           <View style={styles.header}>
-            <Text style={styles.title}>💬 ChatNET</Text>
-            <TouchableOpacity 
-              style={styles.settingsButton}
-              onPress={() => setShowSettingsModal(true)}
-              activeOpacity={0.7}
-            >
-              <Image 
-                source={require('./assets/setting.png')} 
-                style={styles.settingsIcon}
-                resizeMode="contain"
-              />
-            </TouchableOpacity>
+            <Text style={styles.title}>ChatNET Pro - Team8 - ETTN</Text>
+            <TouchableOpacity onPress={() => setShowSettingsModal(true)}><Text style={{fontSize:24}}>⚙️</Text></TouchableOpacity>
           </View>
 
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={styles.keyboardAvoid}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-          >
+          {/* SETTINGS */}
+          <Modal visible={showSettingsModal} transparent animationType="slide">
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>Cài Đặt</Text>
+                <Text>IP Của Bạn: {myIp}</Text>
+                <Text style={{marginTop:10, fontWeight:'bold'}}>IP Người Nhận:</Text>
+                <TextInput style={styles.input} placeholder="10.0.2.2" value={targetIp} onChangeText={setTargetIp} keyboardType="numeric"/>
+                <Text style={{marginTop:10, fontWeight:'bold'}}>Secret Key (AES/DES):</Text>
+                <TextInput style={styles.input} value={encryptionKey} onChangeText={setEncryptionKey}/>
+                <TouchableOpacity onPress={()=>setShowSettingsModal(false)} style={styles.btn}><Text style={{color:'white'}}>LƯU</Text></TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
 
-            {/* Settings Modal */}
-            <Modal
-              visible={showSettingsModal}
-              transparent={true}
-              animationType="slide"
-              onRequestClose={() => setShowSettingsModal(false)}
-            >
-              <View style={styles.modalOverlay}>
-                <View style={styles.modalContent}>
-                  <View style={styles.modalHeader}>
-                    <Text style={styles.modalTitle}>⚙️ Cài đặt</Text>
-                    <TouchableOpacity 
-                      onPress={() => setShowSettingsModal(false)}
-                      style={styles.closeButton}
-                    >
-                      <Text style={styles.closeButtonText}>✕</Text>
+          {/* ALGO MENU */}
+          <Modal visible={showAlgoMenu} transparent animationType="fade">
+            <TouchableOpacity style={styles.modalOverlay} onPress={()=>setShowAlgoMenu(false)}>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>Chọn Mã Hóa</Text>
+                {['AES', 'DES', 'RSA', 'CAESAR'].map(alg => (
+                    <TouchableOpacity key={alg} onPress={()=>{setSelectedAlgo(alg as any); setShowAlgoMenu(false)}} style={{padding:15, borderBottomWidth:1, borderColor:'#eee'}}>
+                        <Text style={{fontWeight: selectedAlgo===alg?'bold':'normal', color:'black', textAlign:'center'}}>{alg}</Text>
                     </TouchableOpacity>
-                  </View>
+                ))}
+              </View>
+            </TouchableOpacity>
+          </Modal>
 
-                  <ScrollView style={styles.modalBody}>
-                    {/* My IP */}
-                    <View style={styles.modalSection}>
-                      <Text style={styles.modalLabel}>📱 Địa chỉ IP của bạn</Text>
-                      <View style={styles.ipDisplayRow}>
-                        <Text style={styles.ipDisplayText}>{myIp}</Text>
-                        <TouchableOpacity 
-                          style={styles.reloadButton} 
-                          onPress={fetchIpAddress}
-                          activeOpacity={0.7}
-                        >
-                          <Text style={styles.reloadIcon}>↻</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-
-                    {/* Target IP */}
-                    <View style={styles.modalSection}>
-                      <Text style={styles.modalLabel}>🌐 IP người nhận</Text>
-                      <TextInput
-                        style={styles.modalInput}
-                        value={targetIp}
-                        onChangeText={setTargetIp}
-                        placeholder="Nhập IP (ví dụ: 192.168.1.100)"
-                        placeholderTextColor="#aaa"
-                        keyboardType="numeric"
-                      />
-                    </View>
-
-                    {/* Encryption Toggle */}
-                    <View style={styles.modalSection}>
-                      <View style={styles.toggleRow}>
-                        <View style={styles.toggleLabelContainer}>
-                          <Text style={styles.modalLabel}>🔐 Chế độ mã hóa</Text>
-                          <Text style={styles.toggleSubLabel}>
-                            {isEncryptionEnabled ? 'Đang bật' : 'Đang tắt'}
-                          </Text>
-                        </View>
-                        <TouchableOpacity
-                          style={[
-                            styles.toggleButton,
-                            isEncryptionEnabled ? styles.toggleButtonOn : styles.toggleButtonOff
-                          ]}
-                          onPress={() => setIsEncryptionEnabled(!isEncryptionEnabled)}
-                          activeOpacity={0.7}
-                        >
-                          <View style={[
-                            styles.toggleCircle,
-                            isEncryptionEnabled ? styles.toggleCircleOn : styles.toggleCircleOff
-                          ]} />
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-
-                    {/* Encryption Key - Only show when encryption is enabled */}
-                    {isEncryptionEnabled && (
-                      <View style={styles.modalSection}>
-                        <Text style={styles.modalLabel}>🔑 Key mã hóa (1-25)</Text>
-                        <TextInput
-                          style={styles.modalInput}
-                          value={encryptionKey}
-                          onChangeText={setEncryptionKey}
-                          placeholder="3"
-                          placeholderTextColor="#aaa"
-                          keyboardType="number-pad"
-                          maxLength={2}
-                        />
-                        <View style={styles.infoBox}>
-                          <Text style={styles.infoIcon}>ℹ️</Text>
-                          <Text style={styles.infoText}>
-                            Cả 2 người phải dùng cùng key để chat được với nhau.
-                          </Text>
-                        </View>
-                      </View>
-                    )}
-                  </ScrollView>
-
-                  <TouchableOpacity 
-                    style={styles.saveButton}
-                    onPress={() => setShowSettingsModal(false)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.saveButtonText}>✓ Lưu cài đặt</Text>
-                  </TouchableOpacity>
+          <ScrollView ref={scrollViewRef} style={{flex:1, padding:10}} onContentSizeChange={()=>scrollViewRef.current?.scrollToEnd()}>
+            {messages.map((m, i) => (
+              <View key={i} style={[styles.row, m.sender==='me'?styles.rowMe:styles.rowOther]}>
+                <View style={[styles.bubble, m.sender==='me'?styles.bubbleMe:styles.bubbleOther]}>
+                  {renderContent(m)}
+                  <Text style={{fontSize:10, color:'#ccc', marginTop:5, textAlign:'right'}}>{m.algo} • {m.timestamp.toLocaleTimeString()}</Text>
                 </View>
               </View>
-            </Modal>
+            ))}
+          </ScrollView>
 
-            {/* Messages Area */}
-            <View style={styles.chatArea}>
-              <ScrollView
-                ref={scrollViewRef}
-                style={styles.messagesContainer}
-                contentContainerStyle={styles.messagesContent}
-                onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
-              >
-                {messages.length === 0 ? (
-                  <View style={styles.emptyState}>
-                    <Text style={styles.emptyText}>Vui lòng cài đặt trước khi trò chuyện</Text>
-                  </View>
-                ) : (
-                  messages.map((msg, index) => (
-                    <View
-                      key={index}
-                      style={[
-                        styles.messageRow,
-                        msg.sender === 'me' ? styles.myMessageRow : styles.otherMessageRow,
-                      ]}
-                    >
-                      <View
-                        style={[
-                          styles.messageBubble,
-                          msg.sender === 'me' ? styles.myMessage : styles.otherMessage,
-                        ]}
-                      >
-                        <Text style={[
-                          styles.messageText,
-                          msg.sender === 'me' ? styles.myMessageText : styles.otherMessageText,
-                        ]}>
-                          {msg.text}
-                        </Text>
-                        <Text style={[
-                          styles.timestamp,
-                          msg.sender === 'me' ? styles.myTimestamp : styles.otherTimestamp,
-                        ]}>
-                          {msg.timestamp.toLocaleTimeString('vi-VN', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </Text>
-                      </View>
-                    </View>
-                  ))
-                )}
-              </ScrollView>
-            </View>
-
-            {/* Message Input */}
-            <View style={styles.inputContainer}>
-              <TextInput
-                style={styles.messageInput}
-                value={message}
-                onChangeText={setMessage}
-                placeholder="Nhập tin nhắn..."
-                placeholderTextColor="#999"
-                multiline
-                maxLength={500}
-              />
-              <TouchableOpacity 
-                style={[styles.sendButton, !message.trim() && styles.sendButtonDisabled]} 
-                onPress={sendMessage}
-                activeOpacity={0.7}
-                disabled={!message.trim()}
-              >
-                <Image 
-                  source={require('./assets/send-message.png')} 
-                  style={styles.sendIcon}
-                  resizeMode="contain"
-                />
-              </TouchableOpacity>
-            </View>
-          </KeyboardAvoidingView>
+          <View style={styles.inputBar}>
+            <TouchableOpacity onPress={()=>setShowAlgoMenu(true)} style={{padding:10, backgroundColor:'#eee', borderRadius:5, marginRight:5}}>
+                <Text style={{fontWeight:'bold', color:'blue'}}>{selectedAlgo} ▼</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleSendPDF} style={{padding:10}}><Text style={{fontSize:22}}>📎</Text></TouchableOpacity>
+            <TouchableOpacity onPress={handlePickImage} style={{padding:10}}><Text style={{fontSize:22}}>📷</Text></TouchableOpacity>
+            <TextInput style={styles.textInput} value={message} onChangeText={setMessage} placeholder="Nhập tin..."/>
+            <TouchableOpacity onPress={()=>{if(message.trim()){sendData(message.trim(), 'text'); setMessage('')}}} style={styles.sendBtn}><Text style={{color:'white'}}>GỬI</Text></TouchableOpacity>
+          </View>
         </SafeAreaView>
-      </ImageBackground>
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  backgroundImage: {
-    flex: 1,
-  },
-  backgroundImageStyle: {
-    opacity: 0.50,
-    resizeMode: 'contain',
-    alignSelf: 'center',
-  },
-  container: {
-    flex: 1,
-    backgroundColor: 'transparent',
-  },
-  keyboardAvoid: {
-    flex: 1,
-  },
-  header: {
-    backgroundColor: '#0084ff',
-    paddingHorizontal: scale(15),
-    paddingTop: Platform.OS === 'ios' ? verticalScale(20) : verticalScale(45),
-    paddingBottom: verticalScale(16),
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: responsiveFontSize(24),
-    fontWeight: 'bold',
-    color: '#fff',
-    letterSpacing: 0.5,
-  },
-  settingsButton: {
-    padding: scale(8),
-    borderRadius: scale(20),
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  settingsIcon: {
-    width: moderateScale(26),
-    height: moderateScale(26),
-    tintColor: '#fff',
-  },
-  // Modal styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: moderateScale(20),
-    width: SCREEN_WIDTH * 0.9,
-    maxHeight: SCREEN_HEIGHT * 0.8,
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: moderateScale(20),
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  modalTitle: {
-    fontSize: responsiveFontSize(20),
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  closeButton: {
-    padding: scale(5),
-  },
-  closeButtonText: {
-    fontSize: responsiveFontSize(24),
-    color: '#666',
-    fontWeight: 'bold',
-  },
-  modalBody: {
-    padding: moderateScale(20),
-  },
-  modalSection: {
-    marginBottom: verticalScale(20),
-  },
-  modalLabel: {
-    fontSize: responsiveFontSize(14),
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: verticalScale(8),
-  },
-  ipDisplayRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-    padding: moderateScale(12),
-    borderRadius: moderateScale(10),
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  ipDisplayText: {
-    flex: 1,
-    fontSize: responsiveFontSize(15),
-    fontWeight: '600',
-    color: '#0084ff',
-  },
-  reloadButton: {
-    backgroundColor: '#0084ff',
-    borderRadius: moderateScale(17),
-    width: moderateScale(34),
-    height: moderateScale(34),
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: scale(10),
-  },
-  reloadIcon: {
-    fontSize: responsiveFontSize(20),
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  modalInput: {
-    borderWidth: 1.5,
-    borderColor: '#d0d0d0',
-    borderRadius: moderateScale(10),
-    padding: moderateScale(14),
-    fontSize: responsiveFontSize(15),
-    color: '#333',
-    backgroundColor: '#fafafa',
-  },
-  infoBox: {
-    flexDirection: 'row',
-    backgroundColor: '#e3f2fd',
-    padding: moderateScale(12),
-    borderRadius: moderateScale(8),
-    marginTop: verticalScale(8),
-    borderLeftWidth: 3,
-    borderLeftColor: '#2196F3',
-  },
-  infoIcon: {
-    fontSize: responsiveFontSize(18),
-    marginRight: scale(8),
-  },
-  infoText: {
-    flex: 1,
-    fontSize: responsiveFontSize(12),
-    color: '#1565C0',
-    lineHeight: responsiveFontSize(18),
-  },
-  saveButton: {
-    backgroundColor: '#4CAF50',
-    padding: moderateScale(16),
-    margin: moderateScale(20),
-    marginTop: 0,
-    borderRadius: moderateScale(12),
-    alignItems: 'center',
-  },
-  saveButtonText: {
-    color: '#fff',
-    fontSize: responsiveFontSize(16),
-    fontWeight: 'bold',
-  },
-  toggleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  toggleLabelContainer: {
-    flex: 1,
-  },
-  toggleSubLabel: {
-    fontSize: responsiveFontSize(12),
-    color: '#666',
-    marginTop: verticalScale(2),
-  },
-  toggleButton: {
-    width: moderateScale(56),
-    height: moderateScale(32),
-    borderRadius: moderateScale(16),
-    padding: scale(2),
-    justifyContent: 'center',
-  },
-  toggleButtonOn: {
-    backgroundColor: '#4CAF50',
-    alignItems: 'flex-end',
-  },
-  toggleButtonOff: {
-    backgroundColor: '#ccc',
-    alignItems: 'flex-start',
-  },
-  toggleCircle: {
-    width: moderateScale(28),
-    height: moderateScale(28),
-    borderRadius: moderateScale(14),
-    backgroundColor: '#fff',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1.5,
-  },
-  toggleCircleOn: {
-  },
-  toggleCircleOff: {
-  },
-  chatArea: {
-    flex: 1,
-    backgroundColor: 'rgba(240, 242, 245, 0.85)',
-    marginBottom: 0,
-  },
-  messagesContainer: {
-    flex: 1,
-  },
-  messagesContent: {
-    padding: moderateScale(14),
-    flexGrow: 1,
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: verticalScale(50),
-    paddingHorizontal: scale(20),
-  },
-  emptyText: {
-    fontSize: responsiveFontSize(15),
-    color: '#888',
-    textAlign: 'center',
-    lineHeight: responsiveFontSize(20),
-  },
-  messageRow: {
-    marginVertical: verticalScale(4),
-  },
-  myMessageRow: {
-    alignItems: 'flex-end',
-  },
-  otherMessageRow: {
-    alignItems: 'flex-start',
-  },
-  messageBubble: {
-    maxWidth: SCREEN_WIDTH * 0.75,
-    padding: moderateScale(12),
-    borderRadius: moderateScale(16),
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 1.5,
-  },
-  myMessage: {
-    backgroundColor: '#0084ff',
-    borderBottomRightRadius: moderateScale(4),
-  },
-  otherMessage: {
-    backgroundColor: '#fff',
-    borderBottomLeftRadius: moderateScale(4),
-  },
-  messageText: {
-    fontSize: responsiveFontSize(15),
-    marginBottom: verticalScale(3),
-    lineHeight: responsiveFontSize(20),
-  },
-  myMessageText: {
-    color: '#fff',
-  },
-  otherMessageText: {
-    color: '#000',
-  },
-  timestamp: {
-    fontSize: responsiveFontSize(11),
-    alignSelf: 'flex-end',
-    marginTop: verticalScale(2),
-  },
-  myTimestamp: {
-    color: 'rgba(255, 255, 255, 0.8)',
-  },
-  otherTimestamp: {
-    color: '#666',
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    padding: moderateScale(14),
-    paddingBottom: verticalScale(24),
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderTopWidth: 0,
-    alignItems: 'center',
-    elevation: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.15,
-    shadowRadius: 5,
-  },
-  messageInput: {
-    flex: 1,
-    borderWidth: 1.5,
-    borderColor: '#d0d0d0',
-    borderRadius: moderateScale(25),
-    paddingHorizontal: scale(16),
-    paddingVertical: verticalScale(10),
-    fontSize: responsiveFontSize(15),
-    maxHeight: verticalScale(100),
-    color: '#333',
-    marginRight: scale(10),
-    backgroundColor: '#fafafa',
-  },
-  sendButton: {
-    backgroundColor: 'transparent',
-    width: moderateScale(25),
-    height: moderateScale(25),
-    borderRadius: moderateScale(13),
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  sendButtonDisabled: {
-    opacity: 0.4,
-  },
-  sendIcon: {
-    width: moderateScale(25),
-    height: moderateScale(25),
-  },
+  header: {padding:15, backgroundColor:'#0084ff', flexDirection:'row', justifyContent:'space-between', alignItems:'center'},
+  title: {color:'white', fontSize:20, fontWeight:'bold'},
+  row: {marginVertical:5, flexDirection:'row'}, rowMe: {justifyContent:'flex-end'}, rowOther: {justifyContent:'flex-start'},
+  bubble: {padding:10, borderRadius:10, maxWidth:'75%'}, bubbleMe: {backgroundColor:'#0084ff'}, bubbleOther: {backgroundColor:'white'},
+  inputBar: {padding:10, backgroundColor:'white', flexDirection:'row', alignItems:'center', borderTopWidth:1, borderColor:'#ddd'},
+  textInput: {flex:1, borderWidth:1, borderColor:'#ddd', borderRadius:20, paddingHorizontal:15, height:40, marginHorizontal:5},
+  sendBtn: {backgroundColor:'#0084ff', padding:10, borderRadius:20},
+  modalOverlay: {flex:1, backgroundColor:'rgba(0,0,0,0.5)', justifyContent:'center', alignItems:'center'},
+  modalContent: {width:'80%', backgroundColor:'white', padding:20, borderRadius:10},
+  modalTitle: {fontSize:18, fontWeight:'bold', marginBottom:10, textAlign:'center'},
+  input: {borderWidth:1, borderColor:'#ddd', padding:10, marginVertical:5, borderRadius:5},
+  btn: {backgroundColor:'#0084ff', padding:10, alignItems:'center', borderRadius:5, marginTop:10}
 });
-
 export default App;
