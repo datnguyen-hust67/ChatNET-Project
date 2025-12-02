@@ -1,214 +1,151 @@
-# 💬 ChatNET
+# 💬 ChatNET - Ứng Dụng Nhắn Tin Bảo Mật
 
-Ứng dụng chat peer-to-peer (P2P) qua mạng LAN với tính năng mã hóa Caesar Cipher, được xây dựng bằng React Native.
+Ứng dụng nhắn tin thời gian thực cho mạng nội bộ (LAN/WiFi) được xây dựng trên nền tảng **React Native**, tích hợp mã hóa đầu cuối và khả năng truyền tải đa phương tiện.
 
-## 🏗️ Kiến trúc & Công nghệ
+---
 
-### Stack công nghệ
-- **Framework**: React Native 0.81.4
-- **Language**: TypeScript 5.8.3
-- **UI Library**: React 19.1.0
-- **Networking**: 
-  - `react-native-tcp-socket` - TCP communication
-  - `@react-native-community/netinfo` - Network detection
-- **Build Tools**: 
-  - Metro Bundler
-  - Gradle (Android)
-  - Xcode (iOS)
+## ✨ Tính Năng Nổi Bật
 
-### Mã hóa
-Ứng dụng sử dụng **Caesar Cipher** - một phương pháp mã hóa thay thế đơn giản:
-- Mỗi ký tự được dịch chuyển một số vị trí cố định trong bảng chữ cái
-- Hỗ trợ cả chữ thường, chữ hoa, chữ có dấu tiếng Việt, số và ký tự đặc biệt
-- Key từ 1-25 (dịch chuyển tương ứng)
-- File: `src/utils/caesarCipher.ts`
+### 🔐 Đa Dạng Thuật Toán Mã Hóa
+Lựa chọn phương thức mã hóa trực tiếp trên giao diện:
+- **AES (Advanced Encryption Standard)** - Chuẩn mã hóa khối mạnh mẽ
+- **DES (Data Encryption Standard)** - Tiêu chuẩn mã hóa cổ điển
+- **RSA (Rivest–Shamir–Adleman)** - Mã hóa bất đối xứng với mô phỏng khóa công khai/riêng tư
+- **Caesar Cipher** - Mã hóa dịch chuyển ký tự cổ điển
 
-## 📋 Yêu cầu hệ thống
+### 📁 Truyền Tải Đa Phương Tiện
+- **Tin Nhắn Văn Bản** - Nhắn tin được mã hóa theo thời gian thực
+- **Hình Ảnh** - Gửi ảnh từ thư viện với chuyển đổi Base64 và mã hóa
+- **Mô Phỏng File** - Tính năng gửi file giả lập để demo truyền tải file an toàn (tối ưu cho Android Emulator)
 
-### Môi trường phát triển
-- **Node.js**: >= 20.x (như trong `package.json`)
-- **npm** hoặc **yarn**: Để quản lý dependencies
-- **Git**: Để clone và version control
+### ⚙️ Cấu Hình Mạng Linh Hoạt
+- **Tùy chỉnh IP/Port** - Kết nối dễ dàng giữa các thiết bị LAN hoặc máy ảo
+- **Cổng 9000** - Tối ưu để tránh xung đột cổng hệ thống
+- **Khóa Bí Mật** - Cấu hình khóa chia sẻ linh hoạt
 
-### Android Development
-- **Android Studio**: Godzilla (2024) hoặc mới hơn
-- **JDK**: 17 hoặc 21
-- **Android SDK**: 
-  - Build Tools version 35.0.0
-  - Platform: Android 15 (API 35)
-  - NDK (nếu cần native modules)
-- **Gradle**: 8.10.2
-- **Android Gradle Plugin**: 8.7.3
+---
 
-### iOS Development (chỉ trên macOS)
-- **macOS**: Ventura (13.0) hoặc mới hơn
-- **Xcode**: 14.0+
-- **CocoaPods**: Để quản lý iOS dependencies
-- **iOS Deployment Target**: 13.4+
+## 🛠️ Công Nghệ Sử Dụng
 
-### Thiết bị test
-- **Android**: API 21+ (Android 5.0+)
-- **iOS**: iOS 13.4+
-- **Network**: Cả 2 thiết bị phải cùng mạng WiFi/LAN
+- **Framework:** React Native (TypeScript/JavaScript)
+- **Mạng:** `react-native-tcp-socket` (Giao tiếp TCP Socket thuần túy)
+- **Mã Hóa:** `crypto-js` (Các thuật toán AES, DES, RSA)
+- **Đa Phương Tiện:** `react-native-image-picker` (Xử lý hình ảnh)
+- **Nền Tảng:** Android Emulator / Thiết bị thật
 
-## 🚀 Cài đặt
+---
 
-### 1. Clone repository
+## 📥 Hướng Dẫn Cài Đặt
+
+**Yêu Cầu:** Node.js, JDK 17, Android Studio
+
+### Bước 1: Clone Repository
 ```bash
-git clone https://github.com/xuandungpham/ChatNET.git
-cd ChatNET
+git clone https://github.com/datnguyen-hust67/ChatNET-Project.git
+cd ChatNET-Project
 ```
 
-### 2. Cài đặt dependencies
+### Bước 2: Cài Đặt Sạch Dependencies
 ```bash
-# Sử dụng npm
+# Xóa cache cũ (nếu có)
+rm -rf node_modules package-lock.json android/.gradle android/app/build
+
+# Cài đặt thư viện
 npm install
+npm install react-native-tcp-socket react-native-image-picker crypto-js
 
-# Hoặc yarn
-yarn install
-```
-
-### 3. Cài đặt iOS dependencies (chỉ trên macOS)
-```bash
-cd ios
-pod install
+# Chuẩn bị môi trường Android
+cd android
+./gradlew clean
 cd ..
 ```
 
-### 4. Kiểm tra cấu hình Android
-Đảm bảo file `android/local.properties` có đường dẫn SDK. Nếu chưa có file `android/local.properties` thì có thể tạo thêm:
-```properties
-sdk.dir=C\:\\Users\\YourUsername\\AppData\\Local\\Android\\sdk
+---
+
+## ▶️ Chạy Ứng Dụng
+
+### 1. Khởi Động Ứng Dụng
+
+**Terminal 1** (Metro Server):
+```bash
+npm start -- --reset-cache
 ```
 
-## 📱 Chạy ứng dụng
-
-### Android
-
-#### Bước 1: Khởi động Metro Bundler
-Mở terminal/command prompt và chạy:
+**Terminal 2** (Cài đặt trên Emulator):
 ```bash
-npm start
-# Hoặc
-npx react-native start
-```
-
-#### Bước 2: Chạy trên thiết bị/emulator
-Mở terminal mới (giữ Metro chạy) và thực thi:
-```bash
-# Chạy trên emulator hoặc thiết bị đã kết nối
-npm run android
-
-# Hoặc dùng React Native CLI trực tiếp
 npx react-native run-android
 ```
 
-**Lưu ý**: 
-- Đảm bảo USB Debugging đã bật trên thiết bị Android
-- Kiểm tra thiết bị đã kết nối: `adb devices`
-- Nếu có nhiều thiết bị, chỉ định device: `adb -s <device_id> install app.apk`
+Đợi ứng dụng tải lên cả hai máy ảo.
 
-### iOS (chỉ macOS)
+### 2. Cấu Hình Mạng (BẮT BUỘC)
 
-#### Bước 1: Khởi động Metro Bundler
+Kích hoạt kết nối giữa các emulator bằng port forwarding:
+
 ```bash
-npm start
+# Reset cấu hình trước đó
+adb forward --remove-all
+adb reverse tcp:8081 tcp:8081
+
+# Forward cổng 9000 cho cả hai emulator
+adb -s emulator-5554 forward tcp:9000 tcp:9000
+adb -s emulator-5556 forward tcp:9000 tcp:9000
 ```
 
-#### Bước 2: Chạy trên simulator/device
-```bash
-# Chạy trên iOS simulator mặc định
-npm run ios
+Sau khi chạy các lệnh này, nhấn **R** hai lần trên cả hai thiết bị để reload.
 
-# Chạy trên iPhone 15 Pro simulator
-npx react-native run-ios --simulator="iPhone 15 Pro"
+---
 
-# Chạy trên thiết bị thật (cần Apple Developer Account)
-npx react-native run-ios --device
-```
+## 📱 Kịch Bản Thử Nghiệm
 
-## 📦 Build APK (Android)
+### Kịch Bản 1: Client-Server (Thiết Bị-Tới-Thiết Bị)
 
-### Debug APK
-```bash
-# Build debug APK
-npm run build:apk
+**Thiết Bị Trái (5554):** Mở app và chờ (server lắng nghe)
 
-# Hoặc thủ công
-cd android
-./gradlew assembleDebug
-cd ..
+**Thiết Bị Phải (5556):**
+1. Nhấn Cài Đặt (⚙️)
+2. Nhập IP: `10.0.2.2`
+3. Nhập Khóa Bí Mật: `123`
+4. Nhấn LƯU
+5. Chọn thuật toán mã hóa (ví dụ: AES)
+6. Gửi tin nhắn
 
-# File APK: android/app/build/outputs/apk/debug/app-debug.apk
-```
+### Kịch Bản 2: Loopback (Tự Kiểm Tra)
 
-### Release APK (Signed)
-```bash
-# Build release APK đã ký
-npm run build:release
+Hoàn hảo để kiểm tra thuật toán mã hóa nếu firewall chặn kết nối emulator:
 
-# File APK: android/app/build/outputs/apk/release/app-release.apk
-```
+1. Vào Cài Đặt
+2. Nhập IP: `127.0.0.1`
+3. Nhấn LƯU
+4. Gửi tin nhắn/file/hình ảnh
 
-**Cấu hình signing** (trong `android/app/build.gradle`):
-```gradle
-signingConfigs {
-    release {
-        storeFile file('my-release-key.keystore')
-        storePassword 'your-store-password'
-        keyAlias 'my-key-alias'
-        keyPassword 'your-key-password'
-    }
-}
-```
+**Kết Quả:** Tin nhắn xuất hiện ngay lập tức (một gửi, một nhận) xác nhận mã hóa/giải mã hoạt động chính xác.
 
-### Cài đặt APK lên thiết bị
-```bash
-# Cài debug APK
-npm run install:apk
+---
 
-# Cài release APK
-npm run install:release
+**Nguồn Gốc:**
+- Repository Gốc: [xuandungpham/ChatNET](https://github.com/xuandungpham/ChatNET)
+- Xin cảm ơn tác giả gốc đã cung cấp nền tảng cho dự án nâng cấp này
 
-# Hoặc thủ công với adb
-adb install -r path/to/app.apk
-```
+---
 
-## 📖 Cách sử dụng
+## 📄 Giấy Phép
 
-### Bước 1: Mở Settings
-1. Mở ứng dụng trên cả 2 thiết bị
-2. Nhấn vào icon ⚙️ (Settings) góc phải trên cùng
+Dự án này phục vụ mục đích giáo dục như một phần của bài tập môn An Toàn Thông Tin.
 
-### Bước 2: Cấu hình
-**Thiết bị A:**
-- Xem "📱 Địa chỉ IP của bạn" (ví dụ: `192.168.1.100`)
-- Nhập IP của thiết bị B vào "🌐 IP người nhận"
-- Cấu hình mã hóa (nếu cần):
-  - Bật/tắt "🔐 Chế độ mã hóa"
-  - Nhập "🔑 Key mã hóa" (1-25, ví dụ: `3`)
+---
 
-**Thiết bị B:**
-- Xem IP của mình
-- Nhập IP của thiết bị A vào "IP người nhận"
-- **Quan trọng**: Sử dụng cùng key mã hóa với thiết bị A
+## 🐛 Xử Lý Sự Cố
 
-### Bước 3: Chat
-- Nhập tin nhắn vào ô input phía dưới
-- Nhấn nút gửi (icon ✉️)
-- Tin nhắn sẽ được mã hóa (nếu bật) và gửi qua TCP socket
+**Ứng dụng không kết nối được?**
+- Xác nhận các lệnh port forwarding đã được thực thi
+- Kiểm tra cả hai thiết bị đang sử dụng cùng một khóa bí mật
+- Đảm bảo firewall không chặn cổng 9000
 
-### Ví dụ
-```
-Thiết bị A (IP: 192.168.1.100):
-- Nhập IP người nhận: 192.168.1.101
-- Key: 3
-- Gửi: "Hello" → Mã hóa thành "Khoor" → Thiết bị B nhận
+**Không gửi được hình ảnh?**
+- Cấp quyền truy cập bộ nhớ trong cài đặt Android
+- Thử sử dụng chế độ loopback trước để kiểm tra chức năng
 
-Thiết bị B (IP: 192.168.1.101):
-- Nhập IP người nhận: 192.168.1.100
-- Key: 3 (phải giống thiết bị A)
-- Nhận: "Khoor" → Giải mã thành "Hello"
-```
-
-**⭐ Nếu thấy hữu ích, hãy star repository này!**
+**Lỗi Metro bundler?**
+- Xóa cache: `npm start -- --reset-cache`
+- Clean Android build: `cd android && ./gradlew clean`
