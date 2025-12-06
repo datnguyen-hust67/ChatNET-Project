@@ -52,10 +52,10 @@ Người dùng có toàn quyền kiểm soát phương thức bảo mật cho t�
 ```bash
 git clone [https://github.com/datnguyen-hust67/ChatNET-Project.git](https://github.com/datnguyen-hust67/ChatNET-Project.git)
 cd ChatNET-Project
+```
 ### Bước 2: Cài Đặt Thư Viện (Dependencies)
+```bash
 Chạy lần lượt các lệnh sau để đảm bảo môi trường sạch sẽ:
-
-Bash
 
 # 1. Xóa cache và file rác cũ (Quan trọng để tránh lỗi build)
 rm -rf node_modules package-lock.json android/.gradle android/app/build
@@ -68,6 +68,7 @@ npm install react-native-tcp-socket react-native-fs react-native-image-picker cr
 cd android
 ./gradlew clean
 cd ..
+```
 ### ▶️ Hướng Dẫn Chạy (Run)
 Để chạy ứng dụng trên Android Emulator, cần mở 2 cửa sổ Terminal:
 
