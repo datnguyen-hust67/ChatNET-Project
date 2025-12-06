@@ -1,117 +1,120 @@
-# 💬 ChatNET - Ứng Dụng Nhắn Tin Bảo Mật & Truyền Tải Đa Phương Tiện
+# 💬 ChatNET - Hệ Thống Nhắn Tin Bảo Mật & Truyền Tải Đa Phương Tiện
 
-ChatNET là ứng dụng nhắn tin thời gian thực hoạt động trên mạng nội bộ (LAN/WiFi), được xây dựng trên nền tảng **React Native**. Ứng dụng tập trung vào tính bảo mật cao với mã hóa đầu cuối và khả năng truyền tải dữ liệu lớn (Video, Hình ảnh, PDF) ổn định thông qua giao thức TCP Socket.
 
----
-
-## ✨ Tính Năng Nổi Bật
-
-### 🔐 Hệ Thống Mã Hóa Đa Dạng
-Người dùng có thể tùy chọn phương thức bảo mật cho từng tin nhắn ngay trên giao diện:
-- **AES (Advanced Encryption Standard)**: Chuẩn mã hóa khối cấp quân sự, bảo mật cao.
-- **DES (Data Encryption Standard)**: Tiêu chuẩn mã hóa dữ liệu truyền thống.
-- **RSA**: Mã hóa bất đối xứng, mô phỏng cơ chế khóa công khai/khóa bí mật.
-- **Caesar Cipher**: Mã hóa dịch chuyển cổ điển phục vụ mục đích học thuật.
-
-### 📁 Truyền Tải Đa Phương Tiện Mạnh Mẽ
-- **Tin Nhắn Văn Bản**: Gửi nhận tức thì với độ trễ thấp.
-- **Hình Ảnh**: Hỗ trợ chọn ảnh từ thư viện, mã hóa và gửi đi chất lượng cao.
-- **Tài Liệu PDF**: Hỗ trợ truyền tải tệp tin văn bản và tài liệu PDF đính kèm một cách toàn vẹn.
-- **Video Streaming (Mới)**: Sử dụng cơ chế phân mảnh gói tin (Chunking Protocol) và Handshake để gửi video dung lượng lớn mà không gây tràn bộ nhớ (RAM) hay nghẽn mạng.
-
-### ⚙️ Cấu Hình Mạng Linh Hoạt
-- **Tùy biến Kết Nối**: Dễ dàng thay đổi địa chỉ IP đích và Cổng (Port) kết nối.
-- **Cổng Mặc Định 9000**: Được tối ưu hóa để tránh xung đột với các dịch vụ hệ thống Android.
-- **Khóa Bảo Mật**: Cung cấp khả năng thiết lập khóa bí mật (Secret Key) riêng cho mỗi phiên chat.
+**ChatNET** là ứng dụng nhắn tin thời gian thực (Real-time Secure Chat) hoạt động trong mạng nội bộ (LAN/WiFi), được phát triển trên nền tảng **React Native**. Ứng dụng tập trung giải quyết bài toán bảo mật dữ liệu đường truyền (End-to-End Encryption) và tối ưu hóa việc truyền tải file lớn (Video) qua giao thức TCP Socket.
 
 ---
 
-## 🛠️ Công Nghệ Cốt Lõi
+## 🚀 Tính Năng Nổi Bật
 
-Dự án sử dụng các thư viện và kỹ thuật xử lý hiện đại:
+### 1. 🔐 Hệ Thống Mã Hóa Đa Tầng
+Người dùng có toàn quyền kiểm soát phương thức bảo mật cho từng tin nhắn:
+- **AES (Advanced Encryption Standard):** Chuẩn mã hóa khối cấp quân sự (Symmetric).
+- **DES (Data Encryption Standard):** Mã hóa dữ liệu tiêu chuẩn (Demo thuật toán cổ điển).
+- **RSA:** Mã hóa bất đối xứng (Public/Private Key simulation).
+- **Caesar Cipher:** Mã hóa dịch chuyển (Học thuật).
 
-- **Core Framework**: React Native (TypeScript).
-- **Giao Thức Mạng**: `react-native-tcp-socket` (Giao tiếp TCP thuần túy, độ ổn định cao).
-- **Quản Lý File**: `react-native-fs` (Đọc/Ghi luồng dữ liệu - Streaming Read/Write cho file lớn).
-- **Bảo Mật**: `crypto-js` (Thư viện mã hóa tiêu chuẩn).
-- **Media**: `react-native-image-picker`.
+### 2. 📁 Truyền Tải Đa Phương Tiện (Multimedia)
+- **Tin Nhắn Văn Bản:** Tốc độ thực thi tức thì.
+- **Hình Ảnh:** Chuyển đổi Bitmap sang Base64, mã hóa và truyền tải.
+- **Tài Liệu (PDF/Doc):** Hỗ trợ gửi file tài liệu giả lập (Mock) và file thật.
+- **Video Streaming (Nâng Cấp):** - Tích hợp cơ chế **Chunking (Phân mảnh)**: Chia nhỏ video thành các gói tin.
+  - **Handshake Protocol**: Đảm bảo bên nhận sẵn sàng trước khi gửi dữ liệu lớn.
+  - Giải quyết triệt để vấn đề tràn bộ nhớ (OOM) khi gửi file >10MB qua Socket.
+
+### 3. ⚙️ Cấu Hình Mạng Mở Rộng
+- **Tùy biến Socket:** Cho phép nhập IP đích và Port tùy ý.
+- **Cổng Mặc Định 9000:** Tối ưu hóa luồng dữ liệu, tránh xung đột hệ thống.
+- **Secret Key Management:** Quản lý khóa bí mật cho phiên làm việc.
 
 ---
 
-## 📥 Hướng Dẫn Cài Đặt
+## 🛠️ Công Nghệ Sử Dụng (Tech Stack)
 
-**Yêu Cầu Hệ Thống:** Node.js, JDK 17, Android Studio (Emulator).
+| Thành Phần | Công Nghệ / Thư Viện | Mô Tả |
+| :--- | :--- | :--- |
+| **Core** | React Native (0.7x) | Framework phát triển đa nền tảng. |
+| **Network** | `react-native-tcp-socket` | Giao tiếp TCP thuần túy, độ trễ thấp. |
+| **File System** | `react-native-fs` | Đọc/Ghi file, xử lý luồng dữ liệu (Stream). |
+| **Security** | `crypto-js` | Thư viện thuật toán mã hóa tiêu chuẩn. |
+| **Media** | `react-native-image-picker` | Truy cập thư viện ảnh/video thiết bị. |
 
-### Bước 1: Clone Project
+---
+
+## 📥 Hướng Dẫn Cài Đặt & Biên Dịch
+
+### Yêu Cầu Hệ Thống
+- Node.js (>= 18.x)
+- Java Development Kit (JDK 17)
+- Android Studio (kèm Android SDK & Emulator)
+
+### Bước 1: Clone Mã Nguồn
 ```bash
 git clone [https://github.com/datnguyen-hust67/ChatNET-Project.git](https://github.com/datnguyen-hust67/ChatNET-Project.git)
 cd ChatNET-Project
-```
+Bước 2: Cài Đặt Thư Viện (Dependencies)
+Chạy lần lượt các lệnh sau để đảm bảo môi trường sạch sẽ:
 
-### Bước 2: Cài Đặt Dependencies
-```bash
-# Xóa cache và node_modules cũ (nếu có)
+Bash
+
+# 1. Xóa cache và file rác cũ (Quan trọng để tránh lỗi build)
 rm -rf node_modules package-lock.json android/.gradle android/app/build
 
-# Cài đặt thư viện
+# 2. Cài đặt các gói thư viện
 npm install
-# Cài đặt các native dependencies quan trọng
 npm install react-native-tcp-socket react-native-fs react-native-image-picker crypto-js @react-native-community/netinfo
 
-# Build môi trường Android
+# 3. Làm sạch và biên dịch Native Module cho Android
 cd android
 ./gradlew clean
 cd ..
-```
+▶️ Hướng Dẫn Chạy (Run)
+Để chạy ứng dụng trên Android Emulator, cần mở 2 cửa sổ Terminal:
 
----
-
-▶️ Hướng Dẫn Chạy & Cấu Hình Mạng
-1. Khởi Động Metro Server
-Mở terminal tại thư mục dự án:
+Terminal 1: Khởi động Metro Bundler
 
 Bash
 
 npm start -- --reset-cache
-2. Cấu Hình ADB (Quan Trọng cho Emulator)
-Để 2 máy ảo Android có thể "nhìn thấy" nhau qua TCP, bạn cần chạy các lệnh Port Forwarding sau trên một Terminal khác:
+Terminal 2: Cài đặt ứng dụng vào máy ảo
 
-Bash
-
-# Reset cấu hình cũ
-adb forward --remove-all
-adb reverse tcp:8081 tcp:8081
-
-# Mở thông luồng cho máy ảo (Giả sử sử dụng port 9000)
-# Máy 1 (Sender/Receiver A)
-adb -s emulator-5554 forward tcp:9000 tcp:9000
-# Máy 2 (Sender/Receiver B)
-adb -s emulator-5556 forward tcp:9000 tcp:9000
-3. Cài Đặt Ứng Dụng
 Bash
 
 npx react-native run-android
-Lưu ý: Chạy lệnh này cho từng máy ảo hoặc để nó tự động cài lên các thiết bị đang mở.
+🌐 Cấu Hình Mạng (ADB Port Forwarding)
+Do đặc thù của Android Emulator (nằm sau NAT), để 2 máy ảo có thể giao tiếp, bạn BẮT BUỘC phải chạy các lệnh sau trên Terminal để mở cổng:
 
-📱 Hướng Dẫn Sử Dụng
-Thiết Lập Kết Nối (Giữa 2 Máy Ảo)
+Bash
+
+# 1. Reset toàn bộ kết nối cũ
+adb forward --remove-all
+adb reverse tcp:8081 tcp:8081
+
+# 2. Mở cổng 9000 cho các máy ảo
+# (Lệnh này cho phép máy tính chuyển tiếp dữ liệu từ cổng 9000 vào máy ảo)
+adb -s emulator-5554 forward tcp:9000 tcp:9000
+adb -s emulator-5556 forward tcp:9000 tcp:9000
+📱 Hướng Dẫn Sử Dụng App
 Mở ứng dụng trên cả 2 thiết bị.
 
-Nhấn vào biểu tượng Cài Đặt (⚙️) ở góc phải.
+Bấm vào nút Cài Đặt (⚙️).
 
-Nhập thông số:
+Thiết lập thông số:
 
-IP Người Nhận: 10.0.2.2 (Đây là IP Loopback đặc biệt của Android Emulator để trỏ về máy chủ).
+IP Người Nhận: 10.0.2.2 (Đây là IP Loopback đặc biệt của Android Emulator).
 
 Port: 9000.
 
-Secret Key: Nhập giống nhau ở cả 2 máy (Ví dụ: 123).
+Secret Key: Nhập giống nhau (VD: 123).
 
-Nhấn LƯU.
+Bấm LƯU.
 
-Gửi Dữ Liệu
-Gửi Video: Nhấn icon 🎥 -> Chọn video. Ứng dụng sẽ tự động chia nhỏ file và gửi đi (có thanh % tiến trình).
+Gửi dữ liệu:
 
-Gửi Ảnh: Nhấn icon 📷.
+Bấm 🎥 để gửi Video.
 
-Gửi PDF: Nhấn icon đính kèm 📎.
+Bấm 📷 để gửi Ảnh.
+
+Bấm 📎 để gửi File PDF.
+
+Chọn thuật toán (AES/DES...) để gửi tin nhắn bảo mật.
